@@ -396,7 +396,7 @@ app.layout = html.Div([
         Input('date-range-picker', 'start_date'),
         Input('date-range-picker', 'end_date')
     )
-    def update_dashboard(selected_artists, start_date, end_date):
+def update_dashboard(selected_artists, start_date, end_date):
         if not selected_artists or not start_date or not end_date:
             return html.Div("Please select a date range and at least one artist."), "", "", "", "", "", "", "", ""
 
