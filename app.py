@@ -382,7 +382,7 @@ app.layout = html.Div([
         html.Div(id='complaints-redos-trend-graph', style={'border': '1px solid #ddd', 'padding': '10px', 'marginBottom': '20px'}),
     ])
 
-    @app.callback(
+@app.callback(
         Output('monthly-commission-net-salary-table', 'children'),
         Output('monthly-retention-table', 'children'),
         Output('monthly-complaints-redos-table', 'children'),
@@ -532,5 +532,4 @@ app.layout = html.Div([
 
         return commission_net_salary_table, retention_table, complaints_redos_table, total_complaints_output, total_redos_output, commission_trend_graph, net_salary_trend_graph, retention_trend_graph, complaints_redos_trend_graph
 
-if __name__ == '__main__':
-    app.run(debug=True, jupyter_mode='inline')
+app.run(debug=True, jupyter_mode='inline')
