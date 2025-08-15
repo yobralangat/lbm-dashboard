@@ -338,7 +338,7 @@ max_date_allowed = all_months[-1]
 
 app = dash.Dash(__name__)
 
-    app.layout = html.Div([
+app.layout = html.Div([
         html.H1("Artist Performance Dashboard", style={'textAlign': 'center', 'color': '#503D36'}),
 
         html.Div([

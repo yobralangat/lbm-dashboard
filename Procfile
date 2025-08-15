@@ -1,1 +1,1 @@
-web: gunicorn lbm:app
+web: gunicorn app:app
