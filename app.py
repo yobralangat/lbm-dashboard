@@ -1,4 +1,11 @@
-import pandas as pd
+import os
+
+# --- DEBUGGING PROBE ---
+print("--- DUMPING ALL ENVIRONMENT VARIABLES ---")
+for key, value in os.environ.items():
+    print(f"'{key}': '{value}'")
+print("--- END OF ENVIRONMENT VARIABLES ---")
+# --- END OF PROBE ---import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import dash
@@ -6,7 +13,6 @@ from dash import dcc, html, Input, Output
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 import warnings
 from datetime import datetime
-import os
 from dotenv import load_dotenv
 load_dotenv()
 transactions_url = os.environ['TRANSACTIONS_URL']
