@@ -150,6 +150,7 @@ app.layout = dbc.Container(fluid=True, className="app-container", children=[
 # --- Main Callback (Correctly Indented) ---
 # --- Main Callback (FINAL, LOGICALLY CORRECTED VERSION) ---
 # --- Main Callback (FINAL, DEFINITIVE VERSION WITH DATA TYPE SANITIZATION) ---
+# --- Main Callback (FINAL, DEFINITIVE VERSION WITH COMPREHENSIVE SANITIZATION) ---
 @app.callback(
     Output('dashboard-content', 'children'),
     Input('artist-dropdown', 'value'),
@@ -205,18 +206,15 @@ def update_dashboard(selected_artist, start_date_str, end_date_str):
     fig_retention = px.line(retention_display_df, x='MonthYear', y='Retention Rate', title=f'Client Retention Rate for {title_name}', markers=True, **color_arg)
     fig_complaints = px.bar(complaints_display_df, x='MonthYear', y=['Complaint', 'Number of Redos'], title=f'Complaints & Redos for {title_name}', barmode='group')
 
-    # Step 6: Sanitize Data Types in DataFrames for JSON Serialization
-    # This is the crucial fix. We convert all potentially problematic number types.
-    if 'Commission' in metrics_display_df.columns:
-        metrics_display_df['Commission'] = metrics_display_df['Commission'].astype(float)
-    if 'Net Salary' in metrics_display_df.columns:
-        metrics_display_df['Net Salary'] = metrics_display_df['Net Salary'].astype(float)
-    if 'Complaint' in complaints_display_df.columns:
-        complaints_display_df['Complaint'] = complaints_display_df['Complaint'].astype(int)
-    if 'Number of Redos' in complaints_display_df.columns:
-        complaints_display_df['Number of Redos'] = complaints_display_df['Number of Redos'].astype(int)
-    if 'Retention Rate' in retention_display_df.columns:
-        retention_display_df['Retention Rate'] = retention_display_df['Retention Rate'].astype(float)
+    # Step 6: Sanitize ALL Numeric Columns in DataFrames for JSON Serialization
+    # This is the comprehensive fix targeting the 'Year' column and others.
+    dataframes_to_sanitize = [metrics_display_df, retention_display_df, complaints_display_df]
+    for df in dataframes_to_sanitize:
+        for col in df.columns:
+            if pd.api.types.is_integer_dtype(df[col]):
+                df[col] = df[col].astype(int)
+            elif pd.api.types.is_float_dtype(df[col]):
+                df[col] = df[col].astype(float)
 
     # Step 7: Return the layout, using the now-sanitized final display dataframes for tables
     return html.Div([
