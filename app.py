@@ -189,11 +189,11 @@ total_complaints = int(complaints_df['Complaint'].sum())
 total_redos = int(complaints_df['Number of Redos'].sum())
 
     # Create Figures
-    color_arg = {'color': 'Artist'} if 'Artist' in metrics_df.columns else {}
-    fig_commission = px.line(metrics_df, x='MonthYear', y='Commission', title=f'Commission Trend for {title_name}', markers=True, **color_arg)
-    fig_net_salary = px.line(metrics_df, x='MonthYear', y='Net Salary', title=f'Net Salary Trend for {title_name}', markers=True, **color_arg)
-    fig_retention = px.line(retention_df, x='MonthYear', y='Retention Rate', title=f'Client Retention Rate for {title_name}', markers=True, **color_arg)
-    fig_complaints = px.bar(complaints_df, x='MonthYear', y=['Complaint', 'Number of Redos'], title=f'Complaints & Redos for {title_name}', barmode='group')
+color_arg = {'color': 'Artist'} if 'Artist' in metrics_df.columns else {}
+fig_commission = px.line(metrics_df, x='MonthYear', y='Commission', title=f'Commission Trend for {title_name}', markers=True, **color_arg)
+fig_net_salary = px.line(metrics_df, x='MonthYear', y='Net Salary', title=f'Net Salary Trend for {title_name}', markers=True, **color_arg)
+fig_retention = px.line(retention_df, x='MonthYear', y='Retention Rate', title=f'Client Retention Rate for {title_name}', markers=True, **color_arg)
+fig_complaints = px.bar(complaints_df, x='MonthYear', y=['Complaint', 'Number of Redos'], title=f'Complaints & Redos for {title_name}', barmode='group')
 
     # Return the layout to be displayed
     return html.Div([
