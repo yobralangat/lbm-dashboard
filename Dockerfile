@@ -1,20 +1,23 @@
-# Use a lightweight Python base image
-FROM python:3.10-slim
+# 1. Use an official, slim Python base image
+FROM python:3.11-slim
 
-# Set working directory
+# 2. Set environment variables
+# - PYTHONUNBUFFERED: Ensures logs are sent straight to the container's log stream
+ENV PYTHONUNBUFFERED=1
+
+# 3. Set the working directory inside the container
 WORKDIR /app
 
-# Copy your app code
-COPY . /app
+# 4. Copy and install dependencies first (for better caching)
+# This step is only re-run if requirements.txt changes
 COPY requirements.txt .
-# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the port Railway will use
-EXPOSE 8000
+# 5. Copy the rest of your application code into the container
+COPY . .
 
-# Start the app with Gunicorn
-CMD ["gunicorn", "app:server", "--bind", "0.0.0.0:8000"]
-
-ENV TRANSACTIONS_URL=https://docs.google.com/spreadsheets/d/e/2PACX-1vSSVhY9V9Pln14qWv1oQS3e-mNoyyYyiXfym1CHw-luAIrbP3Zg2EqnPXGVxoDJQQDxTVP5Es9EdWUW/pub?gid=0&single=true&output=csv
-ENV PRODUCTS_URL=https://docs.google.com/spreadsheets/d/e/2PACX-1vQE2fmwEbJKVkU701qiYvY2MgZxb_C74DDluLbIDgrzz1HZ8bUO4BFXCUhQh-tdiVunBB81_giASCAC/pub?gid=1791698933&single=true&output=csv
+# 6. The command to run your application
+# This is the replacement for the Procfile!
+# It tells gunicorn to listen on all network interfaces (0.0.0.0)
+# on the port provided by Railway's $PORT environment variable.
+CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "app:server"]
