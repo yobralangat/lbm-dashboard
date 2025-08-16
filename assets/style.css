@@ -1,0 +1,10 @@
+/* assets/style.css */
+
+body {
+    background-color: #f0f2f5; /* A light, modern grey background */
+}
+
+.app-container {
+    padding-top: 20px;
+    padding-bottom: 20px;
+}

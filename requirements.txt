@@ -4,3 +4,4 @@ plotly
 statsmodels
 gunicorn
 python-dotenv
+dash-bootstrap-components
