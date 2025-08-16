@@ -335,8 +335,8 @@ all_months = sorted(merged_monthly_data['MonthYear'].unique())
 min_date_allowed = all_months[0]
 max_date_allowed = all_months[-1]
 
-app = dash.Dash(__name__)
-
+app = dash.Dash(__name__, suppress_callback_exceptions=True)
+server = app.server
 app.layout = html.Div([
         html.H1("Artist Performance Dashboard", style={'textAlign': 'center', 'color': '#503D36'}),
 
@@ -532,4 +532,4 @@ def update_dashboard(selected_artists, start_date, end_date):
         return commission_net_salary_table, retention_table, complaints_redos_table, total_complaints_output, total_redos_output, commission_trend_graph, net_salary_trend_graph, retention_trend_graph, complaints_redos_trend_graph
 
 if __name__ == '__main__':
-	app.run(debug=True, jupyter_mode='inline')
+	app.run_server(debug=True)
