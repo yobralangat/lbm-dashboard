@@ -149,6 +149,7 @@ app.layout = dbc.Container(fluid=True, className="app-container", children=[
 # --- Main Callback ---
 # --- Main Callback (Correctly Indented) ---
 # --- Main Callback (FINAL, LOGICALLY CORRECTED VERSION) ---
+# --- Main Callback (FINAL, DEFINITIVE VERSION WITH DATA TYPE SANITIZATION) ---
 @app.callback(
     Output('dashboard-content', 'children'),
     Input('artist-dropdown', 'value'),
@@ -162,15 +163,14 @@ def update_dashboard(selected_artist, start_date_str, end_date_str):
     start_date = pd.to_datetime(start_date_str)
     end_date = pd.to_datetime(end_date_str)
 
-    # --- Step 1: Filter all base dataframes by the selected date range first ---
+    # Step 1: Filter all base dataframes by the selected date range first
     metrics_by_date = merged_monthly_data[(merged_monthly_data['MonthYear'] >= start_date) & (merged_monthly_data['MonthYear'] <= end_date)]
     complaints_by_date = monthly_complaints_redos[(monthly_complaints_redos['MonthYear'] >= start_date) & (monthly_complaints_redos['MonthYear'] <= end_date)]
     retention_by_date = retention_data[(retention_data['MonthYear'] >= start_date) & (retention_data['MonthYear'] <= end_date)]
 
-    # --- Step 2: Prepare the final dataframes for display based on artist selection ---
+    # Step 2: Prepare the final dataframes for display based on artist selection
     if selected_artist == 'All':
         title_name = "All Artists (Studio Total)"
-        # For 'All', we group the date-filtered data to get monthly totals
         metrics_display_df = metrics_by_date.groupby('MonthYear').agg(
             Commission=('Commission', 'sum'),
             **{'Net Salary': ('Net Salary', 'sum')}
@@ -184,29 +184,41 @@ def update_dashboard(selected_artist, start_date_str, end_date_str):
         ).reset_index()
     else:
         title_name = selected_artist
-        # For a single artist, we just filter the date-filtered dataframes
         metrics_display_df = metrics_by_date[metrics_by_date['Artist'] == selected_artist]
         complaints_display_df = complaints_by_date[complaints_by_date['Artist'] == selected_artist]
         retention_display_df = retention_by_date[retention_by_date['Artist'] == selected_artist]
 
-    # --- Step 3: Check for empty data BEFORE calculations ---
+    # Step 3: Check for empty data BEFORE calculations
     if metrics_display_df.empty:
         return dbc.Alert(f"No data available for {title_name} in the selected date range.", color="info", className="m-4")
 
-    # --- Step 4: Calculate KPIs from the final display dataframes ---
+    # Step 4: Calculate KPIs from the final display dataframes
     total_commission = int(metrics_display_df['Commission'].sum())
     total_net_salary = int(metrics_display_df['Net Salary'].sum())
     total_complaints = int(complaints_display_df['Complaint'].sum())
     total_redos = int(complaints_display_df['Number of Redos'].sum())
 
-    # --- Step 5: Create Figures from the final display dataframes ---
+    # Step 5: Create Figures from the final display dataframes
     color_arg = {'color': 'Artist'} if 'Artist' in metrics_display_df.columns else {}
     fig_commission = px.line(metrics_display_df, x='MonthYear', y='Commission', title=f'Commission Trend for {title_name}', markers=True, **color_arg)
     fig_net_salary = px.line(metrics_display_df, x='MonthYear', y='Net Salary', title=f'Net Salary Trend for {title_name}', markers=True, **color_arg)
     fig_retention = px.line(retention_display_df, x='MonthYear', y='Retention Rate', title=f'Client Retention Rate for {title_name}', markers=True, **color_arg)
     fig_complaints = px.bar(complaints_display_df, x='MonthYear', y=['Complaint', 'Number of Redos'], title=f'Complaints & Redos for {title_name}', barmode='group')
 
-    # --- Step 6: Return the layout, using the final display dataframes for tables ---
+    # Step 6: Sanitize Data Types in DataFrames for JSON Serialization
+    # This is the crucial fix. We convert all potentially problematic number types.
+    if 'Commission' in metrics_display_df.columns:
+        metrics_display_df['Commission'] = metrics_display_df['Commission'].astype(float)
+    if 'Net Salary' in metrics_display_df.columns:
+        metrics_display_df['Net Salary'] = metrics_display_df['Net Salary'].astype(float)
+    if 'Complaint' in complaints_display_df.columns:
+        complaints_display_df['Complaint'] = complaints_display_df['Complaint'].astype(int)
+    if 'Number of Redos' in complaints_display_df.columns:
+        complaints_display_df['Number of Redos'] = complaints_display_df['Number of Redos'].astype(int)
+    if 'Retention Rate' in retention_display_df.columns:
+        retention_display_df['Retention Rate'] = retention_display_df['Retention Rate'].astype(float)
+
+    # Step 7: Return the layout, using the now-sanitized final display dataframes for tables
     return html.Div([
         dbc.Row([
             dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"Ksh {total_commission:,.0f}"), html.P("Total Commission")])]), md=3),
