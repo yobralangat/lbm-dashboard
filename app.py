@@ -148,6 +148,7 @@ app.layout = dbc.Container(fluid=True, className="app-container", children=[
 
 # --- Main Callback ---
 # --- Main Callback (Correctly Indented) ---
+# --- Main Callback (FINAL, LOGICALLY CORRECTED VERSION) ---
 @app.callback(
     Output('dashboard-content', 'children'),
     Input('artist-dropdown', 'value'),
@@ -161,40 +162,51 @@ def update_dashboard(selected_artist, start_date_str, end_date_str):
     start_date = pd.to_datetime(start_date_str)
     end_date = pd.to_datetime(end_date_str)
 
-    # Filter data by the selected date range first
+    # --- Step 1: Filter all base dataframes by the selected date range first ---
     metrics_by_date = merged_monthly_data[(merged_monthly_data['MonthYear'] >= start_date) & (merged_monthly_data['MonthYear'] <= end_date)]
     complaints_by_date = monthly_complaints_redos[(monthly_complaints_redos['MonthYear'] >= start_date) & (monthly_complaints_redos['MonthYear'] <= end_date)]
     retention_by_date = retention_data[(retention_data['MonthYear'] >= start_date) & (retention_data['MonthYear'] <= end_date)]
 
-    # Now, handle the artist selection
+    # --- Step 2: Prepare the final dataframes for display based on artist selection ---
     if selected_artist == 'All':
         title_name = "All Artists (Studio Total)"
-        metrics_df = metrics_by_date.groupby('MonthYear').agg({'Commission': 'sum', 'Net Salary': 'sum'}).reset_index()
-        complaints_df = complaints_by_date.groupby('MonthYear').agg({'Complaint': 'sum', 'Number of Redos': 'sum'}).reset_index()
-        retention_df = retention_by_date.groupby('MonthYear').agg({'Retention Rate': 'mean'}).reset_index()
+        # For 'All', we group the date-filtered data to get monthly totals
+        metrics_display_df = metrics_by_date.groupby('MonthYear').agg(
+            Commission=('Commission', 'sum'),
+            **{'Net Salary': ('Net Salary', 'sum')}
+        ).reset_index()
+        complaints_display_df = complaints_by_date.groupby('MonthYear').agg(
+            Complaint=('Complaint', 'sum'),
+            **{'Number of Redos': ('Number of Redos', 'sum')}
+        ).reset_index()
+        retention_display_df = retention_by_date.groupby('MonthYear').agg(
+            **{'Retention Rate': ('Retention Rate', 'mean')}
+        ).reset_index()
     else:
         title_name = selected_artist
-        metrics_df = metrics_by_date[metrics_by_date['Artist'] == selected_artist]
-        complaints_df = complaints_by_date[complaints_by_date['Artist'] == selected_artist]
-        retention_df = retention_by_date[retention_by_date['Artist'] == selected_artist]
+        # For a single artist, we just filter the date-filtered dataframes
+        metrics_display_df = metrics_by_date[metrics_by_date['Artist'] == selected_artist]
+        complaints_display_df = complaints_by_date[complaints_by_date['Artist'] == selected_artist]
+        retention_display_df = retention_by_date[retention_by_date['Artist'] == selected_artist]
 
-    if metrics_df.empty:
+    # --- Step 3: Check for empty data BEFORE calculations ---
+    if metrics_display_df.empty:
         return dbc.Alert(f"No data available for {title_name} in the selected date range.", color="info", className="m-4")
 
-    # KPIs (with explicit type casting to prevent JSON error)
-    total_commission = int(metrics_df['Commission'].sum())
-    total_net_salary = int(metrics_df['Net Salary'].sum())
-    total_complaints = int(complaints_df['Complaint'].sum())
-    total_redos = int(complaints_df['Number of Redos'].sum())
+    # --- Step 4: Calculate KPIs from the final display dataframes ---
+    total_commission = int(metrics_display_df['Commission'].sum())
+    total_net_salary = int(metrics_display_df['Net Salary'].sum())
+    total_complaints = int(complaints_display_df['Complaint'].sum())
+    total_redos = int(complaints_display_df['Number of Redos'].sum())
 
-    # Create Figures
-    color_arg = {'color': 'Artist'} if 'Artist' in metrics_df.columns else {}
-    fig_commission = px.line(metrics_df, x='MonthYear', y='Commission', title=f'Commission Trend for {title_name}', markers=True, **color_arg)
-    fig_net_salary = px.line(metrics_df, x='MonthYear', y='Net Salary', title=f'Net Salary Trend for {title_name}', markers=True, **color_arg)
-    fig_retention = px.line(retention_df, x='MonthYear', y='Retention Rate', title=f'Client Retention Rate for {title_name}', markers=True, **color_arg)
-    fig_complaints = px.bar(complaints_df, x='MonthYear', y=['Complaint', 'Number of Redos'], title=f'Complaints & Redos for {title_name}', barmode='group')
+    # --- Step 5: Create Figures from the final display dataframes ---
+    color_arg = {'color': 'Artist'} if 'Artist' in metrics_display_df.columns else {}
+    fig_commission = px.line(metrics_display_df, x='MonthYear', y='Commission', title=f'Commission Trend for {title_name}', markers=True, **color_arg)
+    fig_net_salary = px.line(metrics_display_df, x='MonthYear', y='Net Salary', title=f'Net Salary Trend for {title_name}', markers=True, **color_arg)
+    fig_retention = px.line(retention_display_df, x='MonthYear', y='Retention Rate', title=f'Client Retention Rate for {title_name}', markers=True, **color_arg)
+    fig_complaints = px.bar(complaints_display_df, x='MonthYear', y=['Complaint', 'Number of Redos'], title=f'Complaints & Redos for {title_name}', barmode='group')
 
-    # Return the layout to be displayed
+    # --- Step 6: Return the layout, using the final display dataframes for tables ---
     return html.Div([
         dbc.Row([
             dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"Ksh {total_commission:,.0f}"), html.P("Total Commission")])]), md=3),
@@ -209,9 +221,9 @@ def update_dashboard(selected_artist, start_date_str, end_date_str):
             dbc.Col(dbc.Card(dcc.Graph(figure=fig_complaints)), md=6, className="mb-4"),
         ]),
         dbc.Accordion([
-            dbc.AccordionItem(dbc.Table.from_dataframe(metrics_df.round(2), striped=True, bordered=True, hover=True), title="Monthly Salary Data"),
-            dbc.AccordionItem(dbc.Table.from_dataframe(retention_df.round(2), striped=True, bordered=True, hover=True), title="Client Retention Data"),
-            dbc.AccordionItem(dbc.Table.from_dataframe(complaints_df.round(2), striped=True, bordered=True, hover=True), title="Complaints & Redos Data"),
+            dbc.AccordionItem(dbc.Table.from_dataframe(metrics_display_df.round(2), striped=True, bordered=True, hover=True), title="Monthly Salary Data"),
+            dbc.AccordionItem(dbc.Table.from_dataframe(retention_display_df.round(2), striped=True, bordered=True, hover=True), title="Client Retention Data"),
+            dbc.AccordionItem(dbc.Table.from_dataframe(complaints_display_df.round(2), striped=True, bordered=True, hover=True), title="Complaints & Redos Data"),
         ], start_collapsed=True)
     ])
 if __name__ == '__main__':
