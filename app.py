@@ -9,8 +9,8 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 load_dotenv()
-transactions_url = os.getenv("TRANSACTIONS_URL")
-products_url = os.getenv("PRODUCTS_URL")
+transactions_url = os.environ['TRANSACTIONS_URL']
+products_url = os.environ['PRODUCTS_URL']
 
 # Define all functions here
 def load_data(transactions_url, products_url):
