@@ -147,10 +147,9 @@ app.layout = dbc.Container(fluid=True, className="app-container", children=[
 ])
 
 # --- Main Callback ---
+# --- Main Callback (Correctly Indented) ---
 @app.callback(
-    # The Output is the Div with the id 'dashboard-content'
     Output('dashboard-content', 'children'),
-    # The Inputs that will trigger this function
     Input('artist-dropdown', 'value'),
     Input('date-range-picker', 'start_date'),
     Input('date-range-picker', 'end_date')
@@ -182,7 +181,7 @@ def update_dashboard(selected_artist, start_date_str, end_date_str):
     if metrics_df.empty:
         return dbc.Alert(f"No data available for {title_name} in the selected date range.", color="info", className="m-4")
 
-    # --- KPIs (with explicit type casting) ---
+    # KPIs (with explicit type casting to prevent JSON error)
     total_commission = int(metrics_df['Commission'].sum())
     total_net_salary = int(metrics_df['Net Salary'].sum())
     total_complaints = int(complaints_df['Complaint'].sum())
@@ -196,12 +195,12 @@ def update_dashboard(selected_artist, start_date_str, end_date_str):
     fig_complaints = px.bar(complaints_df, x='MonthYear', y=['Complaint', 'Number of Redos'], title=f'Complaints & Redos for {title_name}', barmode='group')
 
     # Return the layout to be displayed
-        return html.Div([
+    return html.Div([
         dbc.Row([
             dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"Ksh {total_commission:,.0f}"), html.P("Total Commission")])]), md=3),
             dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"Ksh {total_net_salary:,.0f}"), html.P("Total Net Salary")])]), md=3),
-            dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"{int(total_complaints)}"), html.P("Total Complaints")])]), md=3),
-            dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"{int(total_redos)}"), html.P("Total Redos")])]), md=3),
+            dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"{total_complaints}"), html.P("Total Complaints")])]), md=3),
+            dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"{total_redos}"), html.P("Total Redos")])]), md=3),
         ], className="text-center mb-4"),
         dbc.Row([
             dbc.Col(dbc.Card(dcc.Graph(figure=fig_commission)), md=6, className="mb-4"),
@@ -215,7 +214,5 @@ def update_dashboard(selected_artist, start_date_str, end_date_str):
             dbc.AccordionItem(dbc.Table.from_dataframe(complaints_df.round(2), striped=True, bordered=True, hover=True), title="Complaints & Redos Data"),
         ], start_collapsed=True)
     ])
-
-
 if __name__ == '__main__':
     app.run_server(debug=True)
