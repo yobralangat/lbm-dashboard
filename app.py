@@ -182,11 +182,11 @@ def update_dashboard(selected_artist, start_date_str, end_date_str):
     if metrics_df.empty:
         return dbc.Alert(f"No data available for {title_name} in the selected date range.", color="info", className="m-4")
 
-    # KPIs
-    total_commission = metrics_df['Commission'].sum()
-    total_net_salary = metrics_df['Net Salary'].sum()
-    total_complaints = complaints_df['Complaint'].sum()
-    total_redos = complaints_df['Number of Redos'].sum()
+    # --- KPIs (with explicit type casting) ---
+total_commission = int(metrics_df['Commission'].sum())
+total_net_salary = int(metrics_df['Net Salary'].sum())
+total_complaints = int(complaints_df['Complaint'].sum())
+total_redos = int(complaints_df['Number of Redos'].sum())
 
     # Create Figures
     color_arg = {'color': 'Artist'} if 'Artist' in metrics_df.columns else {}
