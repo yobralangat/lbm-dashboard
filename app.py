@@ -532,5 +532,4 @@ def update_dashboard(selected_artists, start_date, end_date):
         return commission_net_salary_table, retention_table, complaints_redos_table, total_complaints_output, total_redos_output, commission_trend_graph, net_salary_trend_graph, retention_trend_graph, complaints_redos_trend_graph
 
 if __name__ == '__main__':
-
 	app.run(debug=True, jupyter_mode='inline')
