@@ -6,7 +6,11 @@ from dash import dcc, html, Input, Output
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 import warnings
 from datetime import datetime
-
+import os
+from dotenv import load_dotenv
+load_dotenv()
+transactions_url = os.getenv("TRANSACTIONS_URL")
+products_url = os.getenv("PRODUCTS_URL")
 
 # Define all functions here
 def load_data(transactions_url, products_url):
@@ -142,11 +146,6 @@ def clean_products_data(df_products):
 
     return df_products
 
-import os
-from dotenv import load_dotenv
-load_dotenv()
-transactions_url = os.getenv("TRANSACTIONS_URL")
-products_url = os.getenv("PRODUCTS_URL")
 
 # Load and clean data
 df_transactions, df_products = load_data(transactions_url, products_url)
