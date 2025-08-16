@@ -6,6 +6,7 @@ for key, value in os.environ.items():
     print(f"'{key}': '{value}'")
 print("--- END OF ENVIRONMENT VARIABLES ---")
 # --- END OF PROBE ---import pandas as pd
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import dash
