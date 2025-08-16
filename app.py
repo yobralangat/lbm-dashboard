@@ -183,20 +183,20 @@ def update_dashboard(selected_artist, start_date_str, end_date_str):
         return dbc.Alert(f"No data available for {title_name} in the selected date range.", color="info", className="m-4")
 
     # --- KPIs (with explicit type casting) ---
-total_commission = int(metrics_df['Commission'].sum())
-total_net_salary = int(metrics_df['Net Salary'].sum())
-total_complaints = int(complaints_df['Complaint'].sum())
-total_redos = int(complaints_df['Number of Redos'].sum())
+    total_commission = int(metrics_df['Commission'].sum())
+    total_net_salary = int(metrics_df['Net Salary'].sum())
+    total_complaints = int(complaints_df['Complaint'].sum())
+    total_redos = int(complaints_df['Number of Redos'].sum())
 
     # Create Figures
-color_arg = {'color': 'Artist'} if 'Artist' in metrics_df.columns else {}
-fig_commission = px.line(metrics_df, x='MonthYear', y='Commission', title=f'Commission Trend for {title_name}', markers=True, **color_arg)
-fig_net_salary = px.line(metrics_df, x='MonthYear', y='Net Salary', title=f'Net Salary Trend for {title_name}', markers=True, **color_arg)
-fig_retention = px.line(retention_df, x='MonthYear', y='Retention Rate', title=f'Client Retention Rate for {title_name}', markers=True, **color_arg)
-fig_complaints = px.bar(complaints_df, x='MonthYear', y=['Complaint', 'Number of Redos'], title=f'Complaints & Redos for {title_name}', barmode='group')
+    color_arg = {'color': 'Artist'} if 'Artist' in metrics_df.columns else {}
+    fig_commission = px.line(metrics_df, x='MonthYear', y='Commission', title=f'Commission Trend for {title_name}', markers=True, **color_arg)
+    fig_net_salary = px.line(metrics_df, x='MonthYear', y='Net Salary', title=f'Net Salary Trend for {title_name}', markers=True, **color_arg)
+    fig_retention = px.line(retention_df, x='MonthYear', y='Retention Rate', title=f'Client Retention Rate for {title_name}', markers=True, **color_arg)
+    fig_complaints = px.bar(complaints_df, x='MonthYear', y=['Complaint', 'Number of Redos'], title=f'Complaints & Redos for {title_name}', barmode='group')
 
     # Return the layout to be displayed
-    return html.Div([
+        return html.Div([
         dbc.Row([
             dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"Ksh {total_commission:,.0f}"), html.P("Total Commission")])]), md=3),
             dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"Ksh {total_net_salary:,.0f}"), html.P("Total Net Salary")])]), md=3),
