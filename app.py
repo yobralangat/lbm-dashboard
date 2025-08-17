@@ -151,6 +151,7 @@ app.layout = dbc.Container(fluid=True, className="app-container", children=[
 # --- Main Callback (FINAL, LOGICALLY CORRECTED VERSION) ---
 # --- Main Callback (FINAL, DEFINITIVE VERSION WITH DATA TYPE SANITIZATION) ---
 # --- Main Callback (FINAL, DEFINITIVE VERSION WITH COMPREHENSIVE SANITIZATION) ---
+# --- Main Callback (DEFINITIVE FIX FOR JSON SERIALIZATION IN TABLES) ---
 @app.callback(
     Output('dashboard-content', 'children'),
     Input('artist-dropdown', 'value'),
@@ -164,59 +165,92 @@ def update_dashboard(selected_artist, start_date_str, end_date_str):
     start_date = pd.to_datetime(start_date_str)
     end_date = pd.to_datetime(end_date_str)
 
-    # Step 1: Filter all base dataframes by the selected date range first
+    # Step 1: Filter all base dataframes by date
     metrics_by_date = merged_monthly_data[(merged_monthly_data['MonthYear'] >= start_date) & (merged_monthly_data['MonthYear'] <= end_date)]
     complaints_by_date = monthly_complaints_redos[(monthly_complaints_redos['MonthYear'] >= start_date) & (monthly_complaints_redos['MonthYear'] <= end_date)]
     retention_by_date = retention_data[(retention_data['MonthYear'] >= start_date) & (retention_data['MonthYear'] <= end_date)]
 
-    # Step 2: Prepare the final dataframes for display based on artist selection
+    # Step 2: Prepare the dataframes for graphs based on artist selection
     if selected_artist == 'All':
         title_name = "All Artists (Studio Total)"
-        metrics_display_df = metrics_by_date.groupby('MonthYear').agg(
-            Commission=('Commission', 'sum'),
-            **{'Net Salary': ('Net Salary', 'sum')}
-        ).reset_index()
-        complaints_display_df = complaints_by_date.groupby('MonthYear').agg(
-            Complaint=('Complaint', 'sum'),
-            **{'Number of Redos': ('Number of Redos', 'sum')}
-        ).reset_index()
-        retention_display_df = retention_by_date.groupby('MonthYear').agg(
-            **{'Retention Rate': ('Retention Rate', 'mean')}
-        ).reset_index()
+        metrics_for_graphs = metrics_by_date.groupby('MonthYear').agg(Commission=('Commission', 'sum'), **{'Net Salary': ('Net Salary', 'sum')}).reset_index()
+        complaints_for_graphs = complaints_by_date.groupby('MonthYear').agg(Complaint=('Complaint', 'sum'), **{'Number of Redos': ('Number of Redos', 'sum')}).reset_index()
+        retention_for_graphs = retention_by_date.groupby('MonthYear').agg(**{'Retention Rate': ('Retention Rate', 'mean')}).reset_index()
     else:
         title_name = selected_artist
-        metrics_display_df = metrics_by_date[metrics_by_date['Artist'] == selected_artist]
-        complaints_display_df = complaints_by_date[complaints_by_date['Artist'] == selected_artist]
-        retention_display_df = retention_by_date[retention_by_date['Artist'] == selected_artist]
+        metrics_for_graphs = metrics_by_date[metrics_by_date['Artist'] == selected_artist]
+        complaints_for_graphs = complaints_by_date[complaints_by_date['Artist'] == selected_artist]
+        retention_for_graphs = retention_by_date[retention_by_date['Artist'] == selected_artist]
 
-    # Step 3: Check for empty data BEFORE calculations
-    if metrics_display_df.empty:
+    # Step 3: Check for empty data
+    if metrics_for_graphs.empty:
         return dbc.Alert(f"No data available for {title_name} in the selected date range.", color="info", className="m-4")
 
-    # Step 4: Calculate KPIs from the final display dataframes
-    total_commission = int(metrics_display_df['Commission'].sum())
-    total_net_salary = int(metrics_display_df['Net Salary'].sum())
-    total_complaints = int(complaints_display_df['Complaint'].sum())
-    total_redos = int(complaints_display_df['Number of Redos'].sum())
+    # Step 4: Calculate KPIs
+    total_commission = int(metrics_for_graphs['Commission'].sum())
+    total_net_salary = int(metrics_for_graphs['Net Salary'].sum())
+    total_complaints = int(complaints_for_graphs['Complaint'].sum())
+    total_redos = int(complaints_for_graphs['Number of Redos'].sum())
 
-    # Step 5: Create Figures from the final display dataframes
-    color_arg = {'color': 'Artist'} if 'Artist' in metrics_display_df.columns else {}
-    fig_commission = px.line(metrics_display_df, x='MonthYear', y='Commission', title=f'Commission Trend for {title_name}', markers=True, **color_arg)
-    fig_net_salary = px.line(metrics_display_df, x='MonthYear', y='Net Salary', title=f'Net Salary Trend for {title_name}', markers=True, **color_arg)
-    fig_retention = px.line(retention_display_df, x='MonthYear', y='Retention Rate', title=f'Client Retention Rate for {title_name}', markers=True, **color_arg)
-    fig_complaints = px.bar(complaints_display_df, x='MonthYear', y=['Complaint', 'Number of Redos'], title=f'Complaints & Redos for {title_name}', barmode='group')
+    # Step 5: Create Figures
+    color_arg = {'color': 'Artist'} if 'Artist' in metrics_for_graphs.columns else {}
+    fig_commission = px.line(metrics_for_graphs, x='MonthYear', y='Commission', title=f'Commission Trend for {title_name}', markers=True, **color_arg)
+    fig_net_salary = px.line(metrics_for_graphs, x='MonthYear', y='Net Salary', title=f'Net Salary Trend for {title_name}', markers=True, **color_arg)
+    fig_retention = px.line(retention_for_graphs, x='MonthYear', y='Retention Rate', title=f'Client Retention Rate for {title_name}', markers=True, **color_arg)
+    fig_complaints = px.bar(complaints_for_graphs, x='MonthYear', y=['Complaint', 'Number of Redos'], title=f'Complaints & Redos for {title_name}', barmode='group')
 
-    # Step 6: Sanitize ALL Numeric Columns in DataFrames for JSON Serialization
-    # This is the comprehensive fix targeting the 'Year' column and others.
-    dataframes_to_sanitize = [metrics_display_df, retention_display_df, complaints_display_df]
-    for df in dataframes_to_sanitize:
-        for col in df.columns:
-            if pd.api.types.is_integer_dtype(df[col]):
-                df[col] = df[col].astype(int)
-            elif pd.api.types.is_float_dtype(df[col]):
-                df[col] = df[col].astype(float)
+    # Step 6: Create NEW, CLEAN DataFrames specifically for the tables with guaranteed correct types
+    # THIS IS THE CRUCIAL FIX
+    
+    # --- Metrics Table ---
+    if 'Artist' in metrics_for_graphs.columns:
+        metrics_table_df = pd.DataFrame({
+            "Artist": metrics_for_graphs['Artist'].astype(str),
+            "Year": metrics_for_graphs['Year'].astype(int),
+            "Month": metrics_for_graphs['Month'].astype(int),
+            "Commission": metrics_for_graphs['Commission'].astype(float),
+            "Net Salary": metrics_for_graphs['Net Salary'].astype(float)
+        })
+    else: # For 'All Artists' view
+        metrics_table_df = pd.DataFrame({
+            "Year": metrics_for_graphs['MonthYear'].dt.year.astype(int),
+            "Month": metrics_for_graphs['MonthYear'].dt.month.astype(int),
+            "Commission": metrics_for_graphs['Commission'].astype(float),
+            "Net Salary": metrics_for_graphs['Net Salary'].astype(float)
+        })
 
-    # Step 7: Return the layout, using the now-sanitized final display dataframes for tables
+    # --- Retention Table ---
+    if 'Artist' in retention_for_graphs.columns:
+         retention_table_df = pd.DataFrame({
+            "Artist": retention_for_graphs['Artist'].astype(str),
+            "Cohort Month": retention_for_graphs['First Visit Month'].astype(str),
+            "Cohort Size": retention_for_graphs['Cohort Size'].astype(int),
+            "Retention Rate": retention_for_graphs['Retention Rate'].astype(float)
+        })
+    else: # For 'All Artists' view
+        retention_table_df = pd.DataFrame({
+            "Cohort Month": retention_for_graphs['MonthYear'].dt.to_period('M').astype(str),
+            "Avg Retention Rate": retention_for_graphs['Retention Rate'].astype(float)
+        })
+        
+    # --- Complaints Table ---
+    if 'Artist' in complaints_for_graphs.columns:
+        complaints_table_df = pd.DataFrame({
+            "Artist": complaints_for_graphs['Artist'].astype(str),
+            "Year": complaints_for_graphs['Year'].astype(int),
+            "Month": complaints_for_graphs['Month'].astype(int),
+            "Complaints": complaints_for_graphs['Complaint'].astype(int),
+            "Redos": complaints_for_graphs['Number of Redos'].astype(int)
+        })
+    else: # For 'All Artists' view
+        complaints_table_df = pd.DataFrame({
+            "Year": complaints_for_graphs['MonthYear'].dt.year.astype(int),
+            "Month": complaints_for_graphs['MonthYear'].dt.month.astype(int),
+            "Complaints": complaints_for_graphs['Complaint'].astype(int),
+            "Redos": complaints_for_graphs['Number of Redos'].astype(int)
+        })
+
+    # Step 7: Return the final layout
     return html.Div([
         dbc.Row([
             dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"Ksh {total_commission:,.0f}"), html.P("Total Commission")])]), md=3),
@@ -231,9 +265,9 @@ def update_dashboard(selected_artist, start_date_str, end_date_str):
             dbc.Col(dbc.Card(dcc.Graph(figure=fig_complaints)), md=6, className="mb-4"),
         ]),
         dbc.Accordion([
-            dbc.AccordionItem(dbc.Table.from_dataframe(metrics_display_df.round(2), striped=True, bordered=True, hover=True), title="Monthly Salary Data"),
-            dbc.AccordionItem(dbc.Table.from_dataframe(retention_display_df.round(2), striped=True, bordered=True, hover=True), title="Client Retention Data"),
-            dbc.AccordionItem(dbc.Table.from_dataframe(complaints_display_df.round(2), striped=True, bordered=True, hover=True), title="Complaints & Redos Data"),
+            dbc.AccordionItem(dbc.Table.from_dataframe(metrics_table_df.round(2), striped=True, bordered=True, hover=True), title="Monthly Salary Data"),
+            dbc.AccordionItem(dbc.Table.from_dataframe(retention_table_df.round(2), striped=True, bordered=True, hover=True), title="Client Retention Data"),
+            dbc.AccordionItem(dbc.Table.from_dataframe(complaints_table_df.round(2), striped=True, bordered=True, hover=True), title="Complaints & Redos Data"),
         ], start_collapsed=True)
     ])
 if __name__ == '__main__':
