@@ -20,6 +20,7 @@ products_url = os.environ['PRODUCTS_URL']
 
 # --- Data Processing Functions ---
 
+# --- Data Processing Functions (CORRECTED FOR JSON SERIALIZATION) ---
 def load_and_process_data():
     """Loads and processes all data sources."""
     print("--- RUNNING FULL DATA REFRESH PIPELINE ---")
@@ -88,7 +89,11 @@ def load_and_process_data():
     returning_count = returned_clients.groupby(['Artist', 'First Visit Month'])['Client Name'].nunique().reset_index(name='Returning Clients')
     retention_data = pd.merge(cohort_size, returning_count, on=['Artist', 'First Visit Month'], how='left').fillna(0)
     retention_data['Retention Rate'] = (retention_data['Returning Clients'] / retention_data['Cohort Size']) * 100
-    retention_data['MonthYear'] = retention_data['First Visit Month'].dt.to_timestamp()
+    
+    # ** THE FIX IS HERE **
+    # Convert the Period object to a simple string first to avoid JSON errors
+    retention_data['First Visit Month'] = retention_data['First Visit Month'].astype(str)
+    retention_data['MonthYear'] = pd.to_datetime(retention_data['First Visit Month'])
 
     merged_monthly_data['MonthYear'] = pd.to_datetime(merged_monthly_data[['Year', 'Month']].assign(day=1))
     monthly_complaints_redos['MonthYear'] = pd.to_datetime(monthly_complaints_redos[['Year', 'Month']].assign(day=1))
