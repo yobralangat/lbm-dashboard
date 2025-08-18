@@ -114,8 +114,6 @@ retention_data['MonthYear'] = retention_data['First Visit Month'].dt.to_timestam
 # --- Prepare Dropdown Options ---
 unique_artists = sorted(merged_monthly_data['Artist'].unique())
 artist_options = [{'label': 'All Artists', 'value': 'All'}] + [{'label': artist, 'value': artist} for artist in unique_artists]
-min_date = merged_monthly_data['MonthYear'].min()
-max_date = merged_monthly_data['MonthYear'].max()
 
 # --- Initialize the Dash App ---
 app = dash.Dash(__name__, external_stylesheets=[APP_THEME])
@@ -124,6 +122,15 @@ server = app.server
 # --- App Layout ---
 app.layout = dbc.Container(fluid=True, className="app-container", children=[
     dbc.Row(dbc.Col(html.H1("Artist Performance Dashboard"), width=12, className="text-center my-4")),
+    # --- Row for Live Clock and Refresh Button ---
+dbc.Row([
+    dbc.Col(html.H5(id='live-clock', className="text-start"), width=6),
+    dbc.Col(dbc.Button("Refresh Data", id="refresh-button", n_clicks=0, color="primary", className="float-end"), width=6)
+], className="mb-4"),
+
+# Interval components for updates
+dcc.Interval(id='interval-clock', interval=1*1000, n_intervals=0), # Updates clock every second
+dcc.Interval(id='interval-data-refresh', interval=15*60*1000, n_intervals=0), # Auto-refreshes data every 15 mins
     dbc.Row([
         dbc.Col(dbc.Card([dbc.CardBody([
             html.H5("Select Artist", className="card-title"),
@@ -131,15 +138,11 @@ app.layout = dbc.Container(fluid=True, className="app-container", children=[
         ])]), md=6, className="mb-4"),
         dbc.Col(dbc.Card([dbc.CardBody([
             html.H5("Select Date Range", className="card-title"),
-            dcc.DatePickerRange(
-                id='date-range-picker',
-                min_date_allowed=min_date,
-                max_date_allowed=max_date,
-                start_date=min_date,
-                end_date=max_date,
-                display_format='MMM YYYY',
-                className="w-100"
-            )
+           dcc.DatePickerRange(
+    id='date-range-picker',
+    display_format='MMM YYYY',
+    className="w-100"
+)
         ])]), md=6, className="mb-4"),
     ]),
     # The Output of the callback will be rendered here
@@ -272,3 +275,65 @@ def update_dashboard(selected_artist, start_date_str, end_date_str):
     ])
 if __name__ == '__main__':
     app.run_server(debug=True)
+
+# --- Callback for the Live Clock ---
+@app.callback(
+    Output('live-clock', 'children'),
+    Input('interval-clock', 'n_intervals')
+)
+def update_clock(n):
+    return f"Live Report as of: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+# --- Callback to Reload Data on Button Click or Interval ---
+@app.callback(
+    Output('refresh-button', 'color'), 
+    Input('refresh-button', 'n_clicks'),
+    Input('interval-data-refresh', 'n_intervals'),
+    # Add a "State" to prevent this from running on initial load
+    prevent_initial_call=True
+)
+def refresh_data_globally(n_clicks, n_intervals):
+    global df_transactions, df_products, merged_monthly_data, monthly_complaints_redos, retention_data
+    
+    print("--- Refreshing data from Google Sheets ---")
+    
+    # Reload and re-process all data
+    df_transactions_raw, df_products_raw = load_data(transactions_url, products_url)
+    df_complaints_raw = pd.read_csv(complaints_url)
+    df_transactions = clean_transactions_data(df_transactions_raw, df_complaints_raw)
+    df_products = clean_products_data(df_products_raw)
+    
+    merged_monthly_data = calculate_monthly_artist_metrics(df_transactions, df_products)
+    monthly_complaints_redos = calculate_monthly_complaints_redos(df_transactions)
+    retention_data = calculate_client_retention(df_transactions, pd.to_datetime('2023-01-01'), datetime.now(), 3)
+    
+    merged_monthly_data['MonthYear'] = pd.to_datetime(merged_monthly_data[['Year', 'Month']].assign(day=1))
+    monthly_complaints_redos['MonthYear'] = pd.to_datetime(monthly_complaints_redos[['Year', 'Month']].assign(day=1))
+    retention_data['MonthYear'] = retention_data['First Visit Month'].dt.to_timestamp()
+    
+    # Provides visual feedback that the refresh happened
+    return "success"
+
+# --- New Callback to Dynamically Update the Date Picker's Range ---
+@app.callback(
+    Output('date-range-picker', 'min_date_allowed'),
+    Output('date-range-picker', 'max_date_allowed'),
+    Output('date-range-picker', 'start_date'),
+    Output('date-range-picker', 'end_date'),
+    Input('refresh-button', 'n_clicks'),
+    Input('interval-data-refresh', 'n_intervals')
+)
+def update_date_picker_range(n_clicks, n_intervals):
+    # This callback runs whenever the data is refreshed.
+    # It calculates the new min and max dates from the (now updated) global dataframe.
+    min_date = merged_monthly_data['MonthYear'].min().date()
+    max_date = merged_monthly_data['MonthYear'].max().date()
+    
+    # We must determine the initial start date based on what is available.
+    # If a user has already selected a range, we might want to preserve it,
+    # but for now, we'll reset to the full range on every refresh.
+    start_date = min_date
+    end_date = max_date
+    
+    # Return the new properties for the date picker
+    return min_date, max_date, start_date, end_date
