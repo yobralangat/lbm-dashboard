@@ -5,7 +5,6 @@ import plotly.graph_objects as go
 import dash
 from dash import dcc, html, Input, Output, State, callback_context
 import dash_bootstrap_components as dbc
-from statsmodels.tsa.statespace.sarimax import SARIMAX
 import warnings
 from datetime import datetime
 from dotenv import load_dotenv
@@ -22,7 +21,10 @@ products_url = os.environ['PRODUCTS_URL']
 # --- Data Processing Functions ---
 
 def load_and_process_data():
-    """Loads and processes all data sources."""
+    """
+    This is the main data pipeline function. It loads all data, cleans it,
+    and returns the final dataframes needed for the dashboard.
+    """
     print("--- RUNNING FULL DATA REFRESH PIPELINE ---")
     
     df_transactions = pd.read_csv(transactions_url)
@@ -83,42 +85,53 @@ def load_and_process_data():
     return merged_monthly_data.to_json(date_format='iso', orient='split'), \
            monthly_complaints_redos.to_json(date_format='iso', orient='split')
 
+# --- ** NEW: Load Initial Data on App Startup ** ---
+initial_metrics_json, initial_complaints_json = load_and_process_data()
+
 # --- Initialize the Dash App ---
 app = dash.Dash(__name__, external_stylesheets=[APP_THEME])
 server = app.server
 
 # --- App Layout ---
 app.layout = dbc.Container(fluid=True, className="app-container", children=[
-    dcc.Store(id='metrics-data-store'),
-    dcc.Store(id='complaints-data-store'),
+    # ** NEW: Load the initial data directly into the stores **
+    dcc.Store(id='metrics-data-store', data=initial_metrics_json),
+    dcc.Store(id='complaints-data-store', data=initial_complaints_json),
+    
     dbc.Row(dbc.Col(html.H1("Artists' Performance Dashboard"), width=12, className="text-center my-4")),
     dbc.Row([
         dbc.Col(html.H5(id='live-clock', className="text-start"), width=6),
         dbc.Col(dbc.Button("Refresh Data", id="refresh-button", n_clicks=0, color="primary", className="float-end"), width=6)
     ], className="mb-4"),
+
     dcc.Interval(id='interval-clock', interval=1000),
+    
     dbc.Row([
         dbc.Col(dbc.Card([dbc.CardBody([
             html.H5("Select Artist", className="card-title"),
-            dcc.Dropdown(id='artist-dropdown', value='All')
+            dcc.Dropdown(id='artist-dropdown', value='All') # Options will be set dynamically
         ])]), md=6, className="mb-4"),
         dbc.Col(dbc.Card([dbc.CardBody([
             html.H5("Select Date Range", className="card-title"),
             dcc.DatePickerRange(id='date-range-picker', display_format='MMM YYYY', className="w-100")
         ])]), md=6, className="mb-4"),
     ]),
-    html.Div(id='dashboard-content')
+    
+    html.Div(id='dashboard-content') 
 ])
 
-# --- CALLBACK 1: Refresh data and store it ---
+# --- CALLBACK 1: Refresh data and UPDATE the stores ---
 @app.callback(
-    Output('metrics-data-store', 'data'),
-    Output('complaints-data-store', 'data'),
-    Input('refresh-button', 'n_clicks')
+    Output('metrics-data-store', 'data', allow_duplicate=True),
+    Output('complaints-data-store', 'data', allow_duplicate=True),
+    Input('refresh-button', 'n_clicks'),
+    prevent_initial_call=True # This is crucial! Prevents it from running on startup
 )
 def refresh_data_and_store(n_clicks):
-    metrics_json, complaints_json = load_and_process_data()
-    return metrics_json, complaints_json
+    if n_clicks > 0:
+        metrics_json, complaints_json = load_and_process_data()
+        return metrics_json, complaints_json
+    return dash.no_update, dash.no_update
 
 # --- CALLBACK 2: Update controls based on stored data ---
 @app.callback(
@@ -131,7 +144,7 @@ def refresh_data_and_store(n_clicks):
 )
 def update_controls(metrics_json):
     if not metrics_json:
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update
     
     df = pd.read_json(metrics_json, orient='split')
     unique_artists = sorted(df['Artist'].unique())
