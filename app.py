@@ -171,6 +171,7 @@ def update_controls(metrics_json):
     return artist_options, min_date, max_date, min_date, max_date
 
 # --- CALLBACK 3: Update main dashboard ---
+# --- CALLBACK 3: Update main dashboard (Corrected KPIs and Graphs) ---
 @app.callback(
     Output('dashboard-content', 'children'),
     Input('artist-dropdown', 'value'),
@@ -220,8 +221,9 @@ def update_main_dashboard(selected_artist, start_date_str, end_date_str, metrics
     total_commission = int(metrics_display_df['Commission'].sum())
     total_net_salary = int(metrics_display_df['Net Salary'].sum())
     total_complaints = int(complaints_display_df['Complaint'].sum())
+    # ** THE FIX IS HERE **
     total_redos = int(complaints_display_df['Number of Redos'].sum())
-    avg_retention = float(retention_display_df['Retention Rate'].mean())
+    avg_retention = float(retention_display_df['Retention Rate'].mean()) if not retention_display_df.empty else 0.0
 
     # Figures
     color_arg = {'color': 'Artist'} if 'Artist' in metrics_display_df.columns else {}
@@ -230,20 +232,39 @@ def update_main_dashboard(selected_artist, start_date_str, end_date_str, metrics
     fig_complaints = px.bar(complaints_display_df, x='MonthYear', y=['Complaint', 'Number of Redos'], title=f'Complaints & Redos for {title_name}', barmode='group')
     fig_retention = px.line(retention_display_df, x='MonthYear', y='Retention Rate', title=f'Client Retention Rate for {title_name}', markers=True, **color_arg)
 
+    # Sanitize dataframes for tables
+    dataframes_to_sanitize = [metrics_display_df, retention_display_df, complaints_display_df]
+    for df in dataframes_to_sanitize:
+        for col in df.columns:
+            if pd.api.types.is_numeric_dtype(df[col]):
+                df[col] = df[col].astype(float).round(2)
 
     return html.Div([
+        # ** THE SECOND FIX IS HERE **
         dbc.Row([
             dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"Ksh {total_commission:,.0f}"), html.P("Total Commission")])]), md=3),
             dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"Ksh {total_net_salary:,.0f}"), html.P("Total Net Salary")])]), md=3),
             dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"{total_complaints}"), html.P("Total Complaints")])]), md=3),
-            dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"{avg_retention:.1f}%"), html.P("Avg. Retention Rate")])]), md=3),
+            # This line was mistakenly replacing the Redos card. Now we have 5 KPIs. Let's adjust layout.
+            dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"{total_redos}"), html.P("Total Redos")])]), md=3),
         ], className="text-center mb-4"),
+        
+        # New row for the Retention KPI to keep things clean
+        dbc.Row([
+             dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"{avg_retention:.1f}%"), html.P("Avg. Retention Rate in Period")])]), md=3, className="mx-auto")
+        ], className="text-center mb-4"),
+
         dbc.Row([
             dbc.Col(dbc.Card(dcc.Graph(figure=fig_commission)), md=6, className="mb-4"),
             dbc.Col(dbc.Card(dcc.Graph(figure=fig_net_salary)), md=6, className="mb-4"),
             dbc.Col(dbc.Card(dcc.Graph(figure=fig_complaints)), md=6, className="mb-4"),
             dbc.Col(dbc.Card(dcc.Graph(figure=fig_retention)), md=6, className="mb-4"),
-        ])
+        ]),
+        dbc.Accordion([
+            dbc.AccordionItem(dbc.Table.from_dataframe(metrics_display_df, striped=True, bordered=True, hover=True), title="Monthly Salary Data"),
+            dbc.AccordionItem(dbc.Table.from_dataframe(retention_display_df, striped=True, bordered=True, hover=True), title="Client Retention Data"),
+            dbc.AccordionItem(dbc.Table.from_dataframe(complaints_display_df, striped=True, bordered=True, hover=True), title="Complaints & Redos Data"),
+        ], start_collapsed=True)
     ])
 
 # --- Clock Callback ---
