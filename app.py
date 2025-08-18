@@ -136,6 +136,7 @@ def refresh_data_and_store(n_clicks):
     return metrics_json, complaints_json
 
 # --- CALLBACK 2: Update controls based on stored data ---
+# --- CALLBACK 2: Update controls based on stored data ---
 @app.callback(
     Output('artist-dropdown', 'options'),
     Output('date-range-picker', 'min_date_allowed'),
@@ -146,7 +147,8 @@ def refresh_data_and_store(n_clicks):
 )
 def update_controls(metrics_json):
     if not metrics_json:
-        return dash.no_update
+        # This callback has 5 Outputs, so it must return 5 values.
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
     
     df = pd.read_json(metrics_json, orient='split')
     unique_artists = sorted(df['Artist'].unique())
