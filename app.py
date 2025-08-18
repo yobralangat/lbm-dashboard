@@ -65,7 +65,7 @@ def load_and_process_data():
     df_products['Month'] = df_products['DATE'].dt.month
     df_products['Year'] = df_products['DATE'].dt.year
 
-    # Calculate Final Metrics
+    # --- Calculate Final Metrics ---
     monthly_commission = df_transactions.groupby(['Artist', 'Year', 'Month'])['Commission'].sum().reset_index()
     monthly_product_cost = df_products.groupby(['ARTIST', 'Year', 'Month'])['Product Cost'].sum().reset_index()
     merged_monthly_data = pd.merge(monthly_commission, monthly_product_cost, left_on=['Artist', 'Year', 'Month'], right_on=['ARTIST', 'Year', 'Month'], how='left')
@@ -76,14 +76,29 @@ def load_and_process_data():
     redos = df_transactions[df_transactions['Service Type'] == 'redo'].groupby(['Artist', 'Year', 'Month']).size().reset_index(name='Number of Redos')
     monthly_complaints_redos = pd.merge(complaints, redos, on=['Artist', 'Year', 'Month'], how='outer').fillna(0)
 
+    # --- Calculate Client Retention ---
+    df_sorted = df_transactions.sort_values(by=['Client Name', 'Date of Visit'])
+    first_visits = df_sorted.groupby('Client Name')['Date of Visit'].min().reset_index().rename(columns={'Date of Visit': 'First Visit Date'})
+    df_with_first_visit = pd.merge(df_sorted, first_visits, on='Client Name', how='left')
+    df_with_first_visit['First Visit Month'] = df_with_first_visit['First Visit Date'].dt.to_period('M')
+    df_with_first_visit['Visit Month'] = df_with_first_visit['Date of Visit'].dt.to_period('M')
+    first_visits_only = df_with_first_visit[df_with_first_visit['Visit Month'] == df_with_first_visit['First Visit Month']].drop_duplicates(subset=['Client Name', 'Artist', 'First Visit Month'])
+    cohort_size = first_visits_only.groupby(['Artist', 'First Visit Month'])['Client Name'].nunique().reset_index(name='Cohort Size')
+    returned_clients = df_with_first_visit[(df_with_first_visit['Visit Month'] > df_with_first_visit['First Visit Month']) & (df_with_first_visit['Visit Month'] <= (df_with_first_visit['First Visit Month'] + 3))].drop_duplicates(subset=['Client Name', 'Artist', 'First Visit Month'])
+    returning_count = returned_clients.groupby(['Artist', 'First Visit Month'])['Client Name'].nunique().reset_index(name='Returning Clients')
+    retention_data = pd.merge(cohort_size, returning_count, on=['Artist', 'First Visit Month'], how='left').fillna(0)
+    retention_data['Retention Rate'] = (retention_data['Returning Clients'] / retention_data['Cohort Size']) * 100
+    retention_data['MonthYear'] = retention_data['First Visit Month'].dt.to_timestamp()
+
     merged_monthly_data['MonthYear'] = pd.to_datetime(merged_monthly_data[['Year', 'Month']].assign(day=1))
     monthly_complaints_redos['MonthYear'] = pd.to_datetime(monthly_complaints_redos[['Year', 'Month']].assign(day=1))
 
     return merged_monthly_data.to_json(date_format='iso', orient='split'), \
-           monthly_complaints_redos.to_json(date_format='iso', orient='split')
+           monthly_complaints_redos.to_json(date_format='iso', orient='split'), \
+           retention_data.to_json(date_format='iso', orient='split')
 
-# --- ** Load Initial Data on App Startup ** ---
-initial_metrics_json, initial_complaints_json = load_and_process_data()
+# --- Load Initial Data on App Startup ---
+initial_metrics_json, initial_complaints_json, initial_retention_json = load_and_process_data()
 
 # --- Initialize the Dash App ---
 app = dash.Dash(__name__, external_stylesheets=[APP_THEME])
@@ -93,6 +108,8 @@ server = app.server
 app.layout = dbc.Container(fluid=True, className="app-container", children=[
     dcc.Store(id='metrics-data-store', data=initial_metrics_json),
     dcc.Store(id='complaints-data-store', data=initial_complaints_json),
+    dcc.Store(id='retention-data-store', data=initial_retention_json),
+    
     dbc.Row(dbc.Col(html.H1("Artists' Performance Dashboard"), width=12, className="text-center my-4")),
     dbc.Row([
         dbc.Col(html.H5(id='live-clock', className="text-start"), width=6),
@@ -109,21 +126,22 @@ app.layout = dbc.Container(fluid=True, className="app-container", children=[
             dcc.DatePickerRange(id='date-range-picker', display_format='MMM YYYY', className="w-100")
         ])]), md=6, className="mb-4"),
     ]),
-    html.Div(id='dashboard-content')
+    html.Div(id='dashboard-content') 
 ])
 
 # --- CALLBACK 1: Refresh data and UPDATE the stores ---
 @app.callback(
     Output('metrics-data-store', 'data', allow_duplicate=True),
     Output('complaints-data-store', 'data', allow_duplicate=True),
+    Output('retention-data-store', 'data', allow_duplicate=True),
     Input('refresh-button', 'n_clicks'),
     prevent_initial_call=True
 )
 def refresh_data_and_store(n_clicks):
     if n_clicks > 0:
-        metrics_json, complaints_json = load_and_process_data()
-        return metrics_json, complaints_json
-    return dash.no_update, dash.no_update
+        metrics_json, complaints_json, retention_json = load_and_process_data()
+        return metrics_json, complaints_json, retention_json
+    return dash.no_update, dash.no_update, dash.no_update
 
 # --- CALLBACK 2: Update controls based on stored data ---
 @app.callback(
@@ -139,8 +157,7 @@ def update_controls(metrics_json):
         return dash.no_update
     
     df = pd.read_json(metrics_json, orient='split')
-    # ** THE FIX IS HERE **
-    df['MonthYear'] = pd.to_datetime(df['MonthYear']) # Convert date column back to datetime
+    df['MonthYear'] = pd.to_datetime(df['MonthYear'])
     
     unique_artists = sorted(df['Artist'].unique())
     artist_options = [{'label': 'All Artists', 'value': 'All'}] + [{'label': artist, 'value': artist} for artist in unique_artists]
@@ -155,58 +172,72 @@ def update_controls(metrics_json):
     Input('date-range-picker', 'start_date'),
     Input('date-range-picker', 'end_date'),
     State('metrics-data-store', 'data'),
-    State('complaints-data-store', 'data')
+    State('complaints-data-store', 'data'),
+    State('retention-data-store', 'data')
 )
-def update_main_dashboard(selected_artist, start_date_str, end_date_str, metrics_json, complaints_json):
-    if not all([selected_artist, start_date_str, end_date_str, metrics_json, complaints_json]):
+def update_main_dashboard(selected_artist, start_date_str, end_date_str, metrics_json, complaints_json, retention_json):
+    if not all([selected_artist, start_date_str, end_date_str, metrics_json, complaints_json, retention_json]):
         return "" 
 
+    # Read and convert data from stores
     merged_monthly_data = pd.read_json(metrics_json, orient='split')
     monthly_complaints_redos = pd.read_json(complaints_json, orient='split')
+    retention_data = pd.read_json(retention_json, orient='split')
     
-    # ** AND THE FIX IS HERE **
     merged_monthly_data['MonthYear'] = pd.to_datetime(merged_monthly_data['MonthYear'])
     monthly_complaints_redos['MonthYear'] = pd.to_datetime(monthly_complaints_redos['MonthYear'])
+    retention_data['MonthYear'] = pd.to_datetime(retention_data['MonthYear'])
 
     start_date = pd.to_datetime(start_date_str)
     end_date = pd.to_datetime(end_date_str)
 
+    # Filter by date
     metrics_by_date = merged_monthly_data[(merged_monthly_data['MonthYear'] >= start_date) & (merged_monthly_data['MonthYear'] <= end_date)]
     complaints_by_date = monthly_complaints_redos[(monthly_complaints_redos['MonthYear'] >= start_date) & (monthly_complaints_redos['MonthYear'] <= end_date)]
+    retention_by_date = retention_data[(retention_data['MonthYear'] >= start_date) & (retention_data['MonthYear'] <= end_date)]
     
+    # Filter by artist
     if selected_artist == 'All':
         title_name = "All Artists (Studio Total)"
         metrics_display_df = metrics_by_date.groupby('MonthYear').agg(Commission=('Commission', 'sum'), **{'Net Salary': ('Net Salary', 'sum')}).reset_index()
         complaints_display_df = complaints_by_date.groupby('MonthYear').agg(Complaint=('Complaint', 'sum'), **{'Number of Redos': ('Number of Redos', 'sum')}).reset_index()
+        retention_display_df = retention_by_date.groupby('MonthYear').agg(**{'Retention Rate': ('Retention Rate', 'mean')}).reset_index()
     else:
         title_name = selected_artist
         metrics_display_df = metrics_by_date[metrics_by_date['Artist'] == selected_artist]
         complaints_display_df = complaints_by_date[complaints_by_date['Artist'] == selected_artist]
+        retention_display_df = retention_by_date[retention_by_date['Artist'] == selected_artist]
 
     if metrics_display_df.empty:
         return dbc.Alert(f"No data available for {title_name} in the selected date range.", color="info", className="m-4")
 
+    # KPIs
     total_commission = int(metrics_display_df['Commission'].sum())
     total_net_salary = int(metrics_display_df['Net Salary'].sum())
     total_complaints = int(complaints_display_df['Complaint'].sum())
     total_redos = int(complaints_display_df['Number of Redos'].sum())
+    avg_retention = float(retention_display_df['Retention Rate'].mean())
 
+    # Figures
     color_arg = {'color': 'Artist'} if 'Artist' in metrics_display_df.columns else {}
     fig_commission = px.line(metrics_display_df, x='MonthYear', y='Commission', title=f'Commission Trend for {title_name}', markers=True, **color_arg)
     fig_net_salary = px.line(metrics_display_df, x='MonthYear', y='Net Salary', title=f'Net Salary Trend for {title_name}', markers=True, **color_arg)
     fig_complaints = px.bar(complaints_display_df, x='MonthYear', y=['Complaint', 'Number of Redos'], title=f'Complaints & Redos for {title_name}', barmode='group')
+    fig_retention = px.line(retention_display_df, x='MonthYear', y='Retention Rate', title=f'Client Retention Rate for {title_name}', markers=True, **color_arg)
+
 
     return html.Div([
         dbc.Row([
             dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"Ksh {total_commission:,.0f}"), html.P("Total Commission")])]), md=3),
             dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"Ksh {total_net_salary:,.0f}"), html.P("Total Net Salary")])]), md=3),
             dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"{total_complaints}"), html.P("Total Complaints")])]), md=3),
-            dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"{total_redos}"), html.P("Total Redos")])]), md=3),
+            dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"{avg_retention:.1f}%"), html.P("Avg. Retention Rate")])]), md=3),
         ], className="text-center mb-4"),
         dbc.Row([
             dbc.Col(dbc.Card(dcc.Graph(figure=fig_commission)), md=6, className="mb-4"),
             dbc.Col(dbc.Card(dcc.Graph(figure=fig_net_salary)), md=6, className="mb-4"),
             dbc.Col(dbc.Card(dcc.Graph(figure=fig_complaints)), md=6, className="mb-4"),
+            dbc.Col(dbc.Card(dcc.Graph(figure=fig_retention)), md=6, className="mb-4"),
         ])
     ])
 
