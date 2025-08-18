@@ -121,7 +121,7 @@ server = app.server
 
 # --- App Layout ---
 app.layout = dbc.Container(fluid=True, className="app-container", children=[
-    dbc.Row(dbc.Col(html.H1("Artist Performance Dashboard"), width=12, className="text-center my-4")),
+    dbc.Row(dbc.Col(html.H1("Artists' Performance Dashboard"), width=12, className="text-center my-4")),
     # --- Row for Live Clock and Refresh Button ---
 dbc.Row([
     dbc.Col(html.H5(id='live-clock', className="text-start"), width=6),
@@ -285,55 +285,49 @@ def update_clock(n):
     return f"Live Report as of: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
 # --- Callback to Reload Data on Button Click or Interval ---
-@app.callback(
-    Output('refresh-button', 'color'), 
-    Input('refresh-button', 'n_clicks'),
-    Input('interval-data-refresh', 'n_intervals'),
-    # Add a "State" to prevent this from running on initial load
-    prevent_initial_call=True
-)
-def refresh_data_globally(n_clicks, n_intervals):
-    global df_transactions, df_products, merged_monthly_data, monthly_complaints_redos, retention_data
-    
-    print("--- Refreshing data from Google Sheets ---")
-    
-    # Reload and re-process all data
-    df_transactions_raw, df_products_raw = load_data(transactions_url, products_url)
-    df_complaints_raw = pd.read_csv(complaints_url)
-    df_transactions = clean_transactions_data(df_transactions_raw, df_complaints_raw)
-    df_products = clean_products_data(df_products_raw)
-    
-    merged_monthly_data = calculate_monthly_artist_metrics(df_transactions, df_products)
-    monthly_complaints_redos = calculate_monthly_complaints_redos(df_transactions)
-    retention_data = calculate_client_retention(df_transactions, pd.to_datetime('2023-01-01'), datetime.now(), 3)
-    
-    merged_monthly_data['MonthYear'] = pd.to_datetime(merged_monthly_data[['Year', 'Month']].assign(day=1))
-    monthly_complaints_redos['MonthYear'] = pd.to_datetime(monthly_complaints_redos[['Year', 'Month']].assign(day=1))
-    retention_data['MonthYear'] = retention_data['First Visit Month'].dt.to_timestamp()
-    
-    # Provides visual feedback that the refresh happened
-    return "success"
-
-# --- New Callback to Dynamically Update the Date Picker's Range ---
+# --- New Combined Callback for Refreshing Data AND Updating Date Picker ---
 @app.callback(
     Output('date-range-picker', 'min_date_allowed'),
     Output('date-range-picker', 'max_date_allowed'),
     Output('date-range-picker', 'start_date'),
     Output('date-range-picker', 'end_date'),
+    Output('refresh-button', 'color'), # Keep this for visual feedback
     Input('refresh-button', 'n_clicks'),
     Input('interval-data-refresh', 'n_intervals')
 )
-def update_date_picker_range(n_clicks, n_intervals):
-    # This callback runs whenever the data is refreshed.
-    # It calculates the new min and max dates from the (now updated) global dataframe.
+def refresh_data_and_update_dates(n_clicks, n_intervals):
+    # This context check determines what triggered the callback
+    ctx = dash.callback_context
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+    # By declaring these as global, this function can modify the main dataframes
+    global df_transactions, df_products, merged_monthly_data, monthly_complaints_redos, retention_data
+    
+    # Only reload the data if the button was clicked or the interval was triggered
+    # This prevents re-loading data on the initial app start
+    if trigger_id in ['refresh-button', 'interval-data-refresh']:
+        print("--- Refreshing data from Google Sheets ---")
+        
+        # Reload and re-process all data from scratch
+        df_transactions_raw, df_products_raw = load_data(transactions_url, products_url)
+        df_complaints_raw = pd.read_csv(complaints_url)
+        df_transactions = clean_transactions_data(df_transactions_raw, df_complaints_raw)
+        df_products = clean_products_data(df_products_raw)
+        
+        merged_monthly_data = calculate_monthly_artist_metrics(df_transactions, df_products)
+        monthly_complaints_redos = calculate_monthly_complaints_redos(df_transactions)
+        retention_data = calculate_client_retention(df_transactions, pd.to_datetime('2023-01-01'), datetime.now(), 3)
+        
+        merged_monthly_data['MonthYear'] = pd.to_datetime(merged_monthly_data[['Year', 'Month']].assign(day=1))
+        monthly_complaints_redos['MonthYear'] = pd.to_datetime(monthly_complaints_redos[['Year', 'Month']].assign(day=1))
+        retention_data['MonthYear'] = retention_data['First Visit Month'].dt.to_timestamp()
+
+    # Now, calculate the date range from the (potentially updated) global dataframe
     min_date = merged_monthly_data['MonthYear'].min().date()
     max_date = merged_monthly_data['MonthYear'].max().date()
+
+    # Decide the button color based on whether the button was the trigger
+    button_color = "success" if trigger_id == 'refresh-button' else "primary"
     
-    # We must determine the initial start date based on what is available.
-    # If a user has already selected a range, we might want to preserve it,
-    # but for now, we'll reset to the full range on every refresh.
-    start_date = min_date
-    end_date = max_date
-    
-    # Return the new properties for the date picker
-    return min_date, max_date, start_date, end_date
+    # Return the new properties for the date picker and the button color
+    return min_date, max_date, min_date, max_date, button_color
