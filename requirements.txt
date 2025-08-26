@@ -1,7 +1,7 @@
 pandas
 dash
-plotly
-statsmodels
-gunicorn
-python-dotenv
 dash-bootstrap-components
+plotly
+gunicorn
+gspread
+oauth2client
