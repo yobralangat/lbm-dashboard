@@ -2,7 +2,7 @@
 
 /* --- General Body and Container Styling --- */
 body {
-    background-color: #e7e9ee;
+    background-color: #f0f2f5;
 }
 
 .app-container {
@@ -12,43 +12,65 @@ body {
 
 /* --- Typography System --- */
 
-/* Main H1 Title of the Dashboard */
 h1 {
     font-weight: 700 !important;
     color: #333;
-    /* Fluid font size for the main title */
     font-size: clamp(1.5rem, 4vw, 2.5rem);
 }
 
-/* --- KPI Card Specific Styling (The Core Fix) --- */
-
-/* Target the main number (the H4) inside the KPI cards */
-.card-body h4 {
-    /* ** THE FLUID FONT SIZE FIX IS HERE ** */
-    /* Min: 1.5rem | Preferred: 3.5vw (scales with screen width) | Max: 2.2rem */
-    font-size: clamp(1.5rem, 3.5vw, 2.2rem); 
-    
-    font-weight: 700;
-    color: #007bff;
-    white-space: nowrap; /* Crucially, prevent the text from ever wrapping to a new line */
-    overflow: hidden;    /* Hide any overflow if the number is extremely long */
-    text-overflow: ellipsis; /* Add "..." if the text overflows */
+.card-header {
+    font-weight: 600;
+    background-color: #fff;
 }
 
-/* Target the descriptive paragraph text in the KPI cards */
+/* --- KPI Card Styling for DESKTOP --- */
+/* These are the styles for larger screens */
+
+.card-body h4 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #007bff;
+}
+
 .card-body p {
-    /* Fluid font size for the description */
-    font-size: clamp(0.7rem, 2vw, 0.9rem);
-    
+    font-size: 1rem;
     text-transform: uppercase;
     letter-spacing: 0.8px;
     font-weight: 600;
     color: #6c757d;
-    margin-bottom: 0; /* Remove bottom margin to keep card height tight */
+    margin-bottom: 0;
 }
 
-/* Target the headers of card components (e.g., for charts) */
-.card-header {
-    font-weight: 600;
-    background-color: #fff; /* Ensure card headers are clean white */
+
+/* --- ** THE NEW RESPONSIVE FIX IS HERE ** --- */
+/* Media Query for tablets and mobile phones (screens 768px wide or less) */
+@media (max-width: 768px) {
+
+    /* Make the card body padding slightly smaller on mobile to create more space */
+    .card-body {
+        padding: 1rem 0.5rem; /* Reduce left/right padding */
+    }
+
+    .card-body h4 {
+        /* Use fluid typography to smoothly scale the font */
+        font-size: clamp(1.4rem, 5vw, 1.8rem);
+
+        /* ** THE CRUCIAL FIX ** */
+        /* Prevent the text from wrapping to a new line */
+        white-space: nowrap; 
+        /* We DO NOT use overflow:hidden here anymore unless absolutely necessary */
+    }
+
+    .card-body p {
+        /* Smaller font for the description on mobile */
+        font-size: 0.8rem;
+    }
+}
+
+/* A second, more extreme media query for VERY narrow screens (like an iPhone SE) */
+@media (max-width: 380px) {
+    .card-body h4 {
+        /* On the smallest screens, shrink the font a little more */
+        font-size: clamp(1.2rem, 4.5vw, 1.4rem);
+    }
 }
