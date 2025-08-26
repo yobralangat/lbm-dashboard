@@ -115,7 +115,7 @@ app.layout = dbc.Container(fluid=True, className="app-container", children=[
     dcc.Store(id='complaints-data-store', data=initial_complaints_json),
     dcc.Store(id='retention-data-store', data=initial_retention_json),
     
-    dbc.Row(dbc.Col(html.H1("Artists' Performance Dashboard"), width=12, className="text-center my-4")),
+    dbc.Row(dbc.Col(html.H1("Lash Studio Performance Dashboard"), width=12, className="text-center my-4")),
     dbc.Row([
         dbc.Col(html.H5(id='live-clock', className="text-start"), width=6),
         dbc.Col(dbc.Button("Refresh Data", id="refresh-button", n_clicks=0, color="primary", className="float-end"), width=6)
