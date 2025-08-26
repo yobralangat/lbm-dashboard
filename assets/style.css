@@ -1,6 +1,5 @@
 /* assets/style.css */
 
-/* --- General Body and Container Styling --- */
 body {
     background-color: #f0f2f5;
 }
@@ -9,8 +8,6 @@ body {
     padding-top: 20px;
     padding-bottom: 20px;
 }
-
-/* --- Typography System --- */
 
 h1 {
     font-weight: 700 !important;
@@ -23,54 +20,38 @@ h1 {
     background-color: #fff;
 }
 
-/* --- KPI Card Styling for DESKTOP --- */
-/* These are the styles for larger screens */
+/* --- Definitive KPI Card Styling --- */
 
-.card-body h4 {
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: #007bff;
+/* Style the container for the number and its title */
+.card-body {
+    padding: 1rem;
 }
 
-.card-body p {
-    font-size: 1rem;
+/* Style the main number (the H4) */
+.card-body h4 {
+    font-size: clamp(1.8rem, 4vw, 2.4rem); /* Fluid font size for the whole line */
+    font-weight: 700;
+    color: #007bff;
+    white-space: nowrap; /* Keep it on one line */
+    margin-bottom: 0.25rem; /* Add a little space below the number */
+}
+
+/* ** THE KEY FIX IS HERE ** */
+/* Target ONLY the currency span inside the H4 */
+.kpi-currency {
+    font-size: 0.6em;       /* Make the currency 60% of the number's size */
+    font-weight: 400;       /* Make it regular weight, not bold */
+    color: #6c757d;        /* Muted grey color */
+    vertical-align: middle; /* Align it nicely with the baseline of the number */
+    margin-right: 0.1em;
+}
+
+/* Style the descriptive title (the P) */
+.kpi-title {
+    font-size: clamp(0.75rem, 2vw, 0.9rem);
     text-transform: uppercase;
     letter-spacing: 0.8px;
     font-weight: 600;
     color: #6c757d;
     margin-bottom: 0;
-}
-
-
-/* --- ** THE NEW RESPONSIVE FIX IS HERE ** --- */
-/* Media Query for tablets and mobile phones (screens 768px wide or less) */
-@media (max-width: 768px) {
-
-    /* Make the card body padding slightly smaller on mobile to create more space */
-    .card-body {
-        padding: 1rem 0.5rem; /* Reduce left/right padding */
-    }
-
-    .card-body h4 {
-        /* Use fluid typography to smoothly scale the font */
-        font-size: clamp(1.4rem, 5vw, 1.8rem);
-
-        /* ** THE CRUCIAL FIX ** */
-        /* Prevent the text from wrapping to a new line */
-        white-space: nowrap; 
-        /* We DO NOT use overflow:hidden here anymore unless absolutely necessary */
-    }
-
-    .card-body p {
-        /* Smaller font for the description on mobile */
-        font-size: 0.8rem;
-    }
-}
-
-/* A second, more extreme media query for VERY narrow screens (like an iPhone SE) */
-@media (max-width: 380px) {
-    .card-body h4 {
-        /* On the smallest screens, shrink the font a little more */
-        font-size: clamp(1.2rem, 4.5vw, 1.4rem);
-    }
 }

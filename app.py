@@ -14,28 +14,21 @@ import json
 # --- Step 1: Initial Setup ---
 load_dotenv()
 warnings.filterwarnings("ignore")
-APP_THEME = dbc.themes.LUX
+APP_THEME = dbc.themes.FLATLY
 
 # --- Step 2: Define Data Processing Logic ---
 def load_and_process_data():
-    """
-    Loads and processes all data from Google Sheets using the official API.
-    This is the most robust way to fetch the data.
-    """
+    """Loads and processes all data from Google Sheets using the official API."""
     print("--- RUNNING FULL DATA REFRESH PIPELINE VIA API ---")
     
-    # Get credentials and URLs from environment variables INSIDE the function
-    # This is crucial for deployment stability.
     google_creds_json_str = os.environ.get('GOOGLE_CREDENTIALS_JSON')
     transactions_url = os.environ.get('TRANSACTIONS_URL')
     products_url = os.environ.get('PRODUCTS_URL')
 
     if not all([google_creds_json_str, transactions_url, products_url]):
         print("FATAL ERROR: Missing one or more required environment variables.")
-        # Return empty dataframes as JSON to prevent the app from crashing
         return pd.DataFrame().to_json(), pd.DataFrame().to_json(), pd.DataFrame().to_json()
 
-    # Authenticate with Google Sheets API
     creds_dict = json.loads(google_creds_json_str)
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
@@ -50,7 +43,6 @@ def load_and_process_data():
     df_products = pd.DataFrame(products_sheet.get_all_records())
     
     print("Data fetched. Starting cleaning and processing...")
-    # --- Clean Transactions ---
     df_transactions['Service Type'] = df_transactions['Service Type'].str.strip().str.lower()
     replace_map = {
         'hybrid': 'hybrid', 'hybrid  ': 'hybrid', 'classic ': 'classic', 'russian vol.': 'russian volume', 'russian volume': 'russian volume',
@@ -82,7 +74,6 @@ def load_and_process_data():
         return 0
     df_transactions['Commission'] = df_transactions.apply(calculate_commission, axis=1)
 
-    # --- Clean Products ---
     df_products['DATE'] = pd.to_datetime(df_products['DATE'], format='%d/%m/%Y', errors='coerce')
     df_products['PRICE/UNIT'] = pd.to_numeric(df_products['PRICE/UNIT'], errors='coerce').fillna(0)
     df_products['UNITS'] = pd.to_numeric(df_products['UNITS'], errors='coerce').fillna(0)
@@ -90,7 +81,6 @@ def load_and_process_data():
     df_products['Month'] = df_products['DATE'].dt.month
     df_products['Year'] = df_products['DATE'].dt.year
 
-    # --- Calculate Final Metrics ---
     monthly_commission = df_transactions.groupby(['Artist', 'Year', 'Month'])['Commission'].sum().reset_index()
     monthly_product_cost = df_products.groupby(['ARTIST', 'Year', 'Month'])['Product Cost'].sum().reset_index()
     merged_monthly_data = pd.merge(monthly_commission, monthly_product_cost, left_on=['Artist', 'Year', 'Month'], right_on=['ARTIST', 'Year', 'Month'], how='left')
@@ -242,16 +232,37 @@ def register_callbacks(app):
         fig_complaints = px.bar(complaints_display_df, x='MonthYear', y=['Complaint', 'Number of Redos'], title=f'Complaints & Redos for {title_name}', barmode='group')
         fig_retention = px.line(retention_display_df, x='MonthYear', y='Retention Rate', title=f'Client Retention Rate for {title_name}', markers=True, **color_arg)
         
+        # --- ** THE FIX IS HERE: UPDATED KPI ROW ** ---
         return html.Div([
             dbc.Row([
-                dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"Ksh {total_commission:,.0f}"), html.P("Total Commission")])]), md=3),
-                dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"Ksh {total_net_salary:,.0f}"), html.P("Total Net Salary")])]), md=3),
-                dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"{total_complaints}"), html.P("Total Complaints")])]), md=3),
-                dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"{total_redos}"), html.P("Total Redos")])]), md=3),
-            ], className="text-center mb-4"),
+                dbc.Col(dbc.Card(dbc.CardBody([
+                    html.H4([html.Span("Ksh ", className="kpi-currency"), f"{total_commission:,.0f}"]),
+                    html.P("Total Commission", className="kpi-title")
+                ])), width=12, sm=6, md=3, className="mb-4"),
+                
+                dbc.Col(dbc.Card(dbc.CardBody([
+                    html.H4([html.Span("Ksh ", className="kpi-currency"), f"{total_net_salary:,.0f}"]),
+                    html.P("Total Net Salary", className="kpi-title")
+                ])), width=12, sm=6, md=3, className="mb-4"),
+
+                dbc.Col(dbc.Card(dbc.CardBody([
+                    html.H4(f"{total_complaints}"),
+                    html.P("Total Complaints", className="kpi-title")
+                ])), width=12, sm=6, md=3, className="mb-4"),
+
+                dbc.Col(dbc.Card(dbc.CardBody([
+                    html.H4(f"{total_redos}"),
+                    html.P("Total Redos", className="kpi-title")
+                ])), width=12, sm=6, md=3, className="mb-4"),
+            ], className="text-center"),
+            
             dbc.Row([
-                 dbc.Col(dbc.Card([dbc.CardBody([html.H4(f"{avg_retention:.1f}%"), html.P("Avg. Retention Rate in Period")])]), md=3, className="mx-auto")
+                 dbc.Col(dbc.Card(dbc.CardBody([
+                     html.H4(f"{avg_retention:.1f}%"), 
+                     html.P("Avg. Retention Rate", className="kpi-title")
+                ])), md=3, className="mx-auto")
             ], className="text-center mb-4"),
+            
             dbc.Row([
                 dbc.Col(dbc.Card(dcc.Graph(figure=fig_commission)), md=6, className="mb-4"),
                 dbc.Col(dbc.Card(dcc.Graph(figure=fig_net_salary)), md=6, className="mb-4"),
