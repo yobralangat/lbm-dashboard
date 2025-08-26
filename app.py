@@ -14,7 +14,7 @@ import json
 # --- Step 1: Initial Setup ---
 load_dotenv()
 warnings.filterwarnings("ignore")
-APP_THEME = dbc.themes.QUARTZ
+APP_THEME = dbc.themes.LUX
 
 # --- Step 2: Define Data Processing Logic ---
 def load_and_process_data():
