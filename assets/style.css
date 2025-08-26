@@ -2,7 +2,7 @@
 
 /* --- General Body and Container Styling --- */
 body {
-    background-color: #f0f2f5; /* A light, modern grey background for light themes */
+    background-color: #e7e9ee;
 }
 
 .app-container {
@@ -10,54 +10,45 @@ body {
     padding-bottom: 20px;
 }
 
-/* --- Typography for DESKTOP screens (large viewports) --- */
+/* --- Typography System --- */
 
-/* Target the main H1 title of the dashboard */
+/* Main H1 Title of the Dashboard */
 h1 {
     font-weight: 700 !important;
-    color: #444;
+    color: #333;
+    /* Fluid font size for the main title */
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
 }
 
-/* Target the main number inside the KPI cards */
+/* --- KPI Card Specific Styling (The Core Fix) --- */
+
+/* Target the main number (the H4) inside the KPI cards */
 .card-body h4 {
-    font-size: 2.2rem;   /* Large font size for desktops */
+    /* ** THE FLUID FONT SIZE FIX IS HERE ** */
+    /* Min: 1.5rem | Preferred: 3.5vw (scales with screen width) | Max: 2.2rem */
+    font-size: clamp(1.5rem, 3.5vw, 2.2rem); 
+    
     font-weight: 700;
     color: #007bff;
+    white-space: nowrap; /* Crucially, prevent the text from ever wrapping to a new line */
+    overflow: hidden;    /* Hide any overflow if the number is extremely long */
+    text-overflow: ellipsis; /* Add "..." if the text overflows */
 }
 
-/* Target the descriptive text in the KPI cards */
+/* Target the descriptive paragraph text in the KPI cards */
 .card-body p {
-    font-size: 1rem;
+    /* Fluid font size for the description */
+    font-size: clamp(0.7rem, 2vw, 0.9rem);
+    
     text-transform: uppercase;
     letter-spacing: 0.8px;
     font-weight: 600;
     color: #6c757d;
+    margin-bottom: 0; /* Remove bottom margin to keep card height tight */
 }
 
-/* Target the headers of card components */
+/* Target the headers of card components (e.g., for charts) */
 .card-header {
     font-weight: 600;
-}
-
-
-/* --- ** THE RESPONSIVE FIX IS HERE ** --- */
-/* Media Query for tablets and mobile phones */
-/* These styles will ONLY apply if the screen width is 768px or less */
-@media (max-width: 768px) {
-
-    /* Use a smaller H1 title on mobile */
-    h1 {
-        font-size: 1.8rem;
-    }
-
-    /* Reduce the font size of the KPI numbers on smaller screens */
-    .card-body h4 {
-        font-size: 1.8rem; /* Smaller, more appropriate font size for mobile */
-    }
-
-    /* Reduce the font size of the KPI descriptions on smaller screens */
-    .card-body p {
-        font-size: 0.8rem; /* Smaller description text */
-        letter-spacing: 0.5px;
-    }
+    background-color: #fff; /* Ensure card headers are clean white */
 }
