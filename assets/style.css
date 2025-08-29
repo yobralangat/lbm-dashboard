@@ -29,8 +29,8 @@ h1 {
 
 /* Style the main number (the H4) */
 .card-body h4 {
-    font-size: clamp(1.5rem, 4.5vw, 2.0rem); /* Fluid font size for the whole line */
-    font-weight: 700;
+    font-size: clamp(1.3rem, 4.2vw, 1.8rem); /* Fluid font size for the whole line */
+    font-weight: 500;
     color: #4f8ccc;
     white-space: nowrap; /* Keep it on one line */
     margin-bottom: 0.25rem; /* Add a little space below the number */
